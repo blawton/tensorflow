@@ -10,10 +10,12 @@ mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 # Discriminator Net
 X = tf.placeholder(tf.float32, shape=[None, 784], name='X')
 
-D_W1 = tf.Variable(tf.random_uniform((784, 128), -1, 1), name='D_W1')
-D_b1 = tf.Variable(tf.zeros(shape=[128]), name='D_b1')
+D_W1 = tf.get_variable("D_W1", shape=[784, 80],
+           initializer=tf.contrib.layers.xavier_initializer())
+D_b1 = tf.Variable(tf.zeros(shape=[80]), name='D_b1')
 
-D_W2 = tf.Variable(tf.random_uniform((128, 1), -1, 1), name='D_W2')
+D_W2 = tf.get_variable("D_W2", shape=[80, 1],
+           initializer=tf.contrib.layers.xavier_initializer())
 D_b2 = tf.Variable(tf.zeros(shape=[1]), name='D_b2')
 
 theta_D = [D_W1, D_W2, D_b1, D_b2]
@@ -21,10 +23,12 @@ theta_D = [D_W1, D_W2, D_b1, D_b2]
 # Generator Net
 Z = tf.placeholder(tf.float32, shape=[None, 100], name='Z')
 
-G_W1 = tf.Variable(tf.random_uniform((100, 128), -1, 1), name='G_W1')
-G_b1 = tf.Variable(tf.zeros(shape=[128]), name='G_b1')
+G_W1 = tf.get_variable("G_W1", shape=[100, 130],
+           initializer=tf.contrib.layers.xavier_initializer())
+G_b1 = tf.Variable(tf.zeros(shape=[130]), name='G_b1')
 
-G_W2 = tf.Variable(tf.random_uniform((128, 784), -1, 1), name='G_W2')
+G_W2 = tf.get_variable("G_W2", shape=[130, 784],
+           initializer=tf.contrib.layers.xavier_initializer())
 G_b2 = tf.Variable(tf.zeros(shape=[784]), name='G_b2')
 
 theta_G = [G_W1, G_W2, G_b1, G_b2]
@@ -50,7 +54,7 @@ D_real, D_logit_real = discriminator(X)
 D_fake, D_logit_fake = discriminator(G_sample)
 
 D_loss = -tf.reduce_mean(tf.log(D_real) + tf.log(1. - D_fake))
-G_loss = -tf.reduce_mean(tf.log(D_fake))
+G_loss = tf.reduce_mean(1-tf.log(D_fake))
 
 #Only update D(X)'s parameters, so var_list = theta_D
 D_solver = tf.train.AdamOptimizer().minimize(D_loss, var_list=theta_D)
@@ -63,15 +67,16 @@ def sample_Z(m, n):
 sess = tf.Session()
 init = tf.global_variables_initializer()
 sess.run(init)
-with sess.as_default():   # or `with sess:` to close on exit
-    for it in range(4):
-        X_mb, _ = mnist.train.next_batch(1)
-        data_sample=sess.run(generator(sample_Z(1, 100)))
-        print(X_mb)
-        print(data_sample)
-        image_sample=np.reshape(data_sample, (28, 28))
-        plt.imshow(data_sample)
-        plt.show()
-        _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: X_mb, Z: sample_Z(1, 100)})
-        _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(1, 100)})
-
+with sess.as_default():# or `with sess:` to close on exit
+    D_loss = []
+    G_loss = []
+    for x in range(0, 20000):
+        X_mb, _ = mnist.train.next_batch(5)
+        if x % 2000 == 0:
+            data_sample=sess.run(generator(sample_Z(1, 100)))
+            image_sample = np.reshape(data_sample, (28, 28))*255
+            plt.imshow(image_sample, cmap='gray', interpolation='nearest', vmin=0, vmax=255)
+            plt.axis('off')
+            plt.show()
+        _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: X_mb, Z: sample_Z(5, 100)})
+        _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(5, 100)})
